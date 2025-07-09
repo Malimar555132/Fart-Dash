@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Surreal Dash</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      background: linear-gradient(to top, #050505, #202040);
+      box-shadow: 0 0 20px #0ff;
+    }
+    #gameContainer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+    .hidden {
+      display: none;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #222;
+      color: white;
+      border: 2px solid #0ff;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0ff;
+      color: black;
+    }
+    h1 {
+      font-size: 48px;
+      margin: 20px 0 10px;
+    }
+    p {
+      font-size: 20px;
+      margin: 5px;
+    }
+.store-item {
+  border: 2px solid #0ff;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px;
+  width: 260px;
+  background: #111;
+  box-shadow: 0 0 12px #0ff5;
+  text-align: center;
+}
+
+.store-item p {
+  margin: 8px 0;
+  font-size: 18px;
+}
+
+.store-item button {
+  background: #222;
+  border: 2px solid #ff0;
+  color: #ff0;
+  padding: 8px 16px;
+  font-size: 16px;
+  margin-top: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.store-item button:hover {
+  background: #ff0;
+  color: black;
+}
+
+#storeScreen h1 {
+  margin-bottom: 10px;
+  font-size: 42px;
+  text-shadow: 0 0 10px #0ff;
+}
+
+#storeGems {
+  margin-bottom: 20px;
+  font-size: 22px;
+  color: #0ff;
+  text-shadow: 0 0 5px #0ff;
+}
+
+.store-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+  </style>
+</head>
+<body>
+
+<!-- INTRO SCREEN -->
+<div id="overlay" class="screen">
+  <img src="baby_cube.png" alt="Baby Cube" style="max-width: 200px; margin-bottom: 20px;" />
+  <div id="storyText">
+    In a distant digital realm, a tiny cube was born with an unfortunate curse: every time it jumps... it farts.<br>
+    Now it must dash through the neon void to find answers... and maybe an air freshener.
+  </div>
+  <p id="startTotal" style="margin-top: 20px;"></p>
+  <button onclick="startGame()">Begin</button>
+  <button onclick="goToStore()">Store</button>
+  <button onclick="clearGems()">Reset Gems</button>
+</div>
+
+<!-- STORE SCREEN -->
+<div id="storeScreen" class="screen hidden">
+  <h1>Gem Store</h1>
+  <p id="storeGems"></p>
+  <div class="store-grid">
+    <div class="store-item">
+      <p><strong>Double Jump</strong></p>
+      <p>Cost: 5 Gems</p>
+      <button onclick="buyDoubleJump()">Buy Double Jump</button>
+      <p id="doubleJumpStatus"></p>
+    </div>
+    <div class="store-item">
+      <p><strong>Shoot Bullets</strong></p>
+      <p>Cost: 1 Gem</p>
+      <button onclick="buyBullet()">Buy Bullet Power</button>
+      <p id="bulletStatus"></p>
+    </div>
+  </div>
+  <button onclick="backToStart()">Back</button>
+</div>
+
+
+<!-- GAME OVER SCREEN -->
+<div id="gameOver" class="screen hidden">
+  <h1>THE END</h1>
+  <p id="finalScore">Score: 0</p>
+  <p id="finalCurrency">Gems This Run: 0</p>
+  <p id="totalCurrency">Total Gems Ever: 0</p>
+  <p id="highScore">High Score: 0</p>
+  <button onclick="restartGame()">Play Again</button>
+</div>
+
+<!-- GAME CANVAS -->
+<div id="gameContainer">
+  <canvas id="game"></canvas>
+</div>
+
+<script>
+let gameStarted = false;
+let canDoubleJump = false;
+let hasDoubleJumped = false;
+let canShoot = false;
+let bullets = [];
+
+function startGame() {
+  document.getElementById("overlay").classList.add("hidden");
+  document.getElementById("storeScreen").classList.add("hidden");
+  document.getElementById("gameOver").classList.add("hidden");
+  gameStarted = true;
+  bgMusic.currentTime = 0;
+  bgMusic.play();
+  gameLoop();
+}
+
+
+function restartGame() {
+  location.reload();
+}
+
+function clearGems() {
+  localStorage.clear();
+  alert("Progress cleared.");
+  location.reload();
+}
+
+function goToStore() {
+  document.getElementById("overlay").classList.add("hidden");
+  document.getElementById("storeScreen").classList.remove("hidden");
+  updateStoreUI();
+}
+
+function backToStart() {
+  document.getElementById("storeScreen").classList.add("hidden");
+  document.getElementById("overlay").classList.remove("hidden");
+}
+
+function updateStoreUI() {
+  const gems = parseInt(localStorage.getItem("totalGems")) || 0;
+  const jumpBought = localStorage.getItem("hasDoubleJump") === "true";
+  const shootBought = localStorage.getItem("canShoot") === "true";
+  document.getElementById("storeGems").textContent = "Total Gems: " + gems;
+  document.getElementById("doubleJumpStatus").textContent = jumpBought ? "✓ Purchased" : "Not Purchased";
+  document.getElementById("bulletStatus").textContent = shootBought ? "✓ Purchased" : "Not Purchased";
+  canDoubleJump = jumpBought;
+  canShoot = shootBought;
+}
+
+function buyDoubleJump() {
+  let gems = parseInt(localStorage.getItem("totalGems")) || 0;
+  if (localStorage.getItem("hasDoubleJump") === "true") return;
+  if (gems >= 5) {
+    gems -= 5;
+    localStorage.setItem("totalGems", gems);
+    localStorage.setItem("hasDoubleJump", "true");
+    canDoubleJump = true;
+    updateStoreUI();
+    alert("Double Jump unlocked!");
+  } else {
+    alert("Not enough gems!");
+  }
+}
+
+function buyBullet() {
+  let gems = parseInt(localStorage.getItem("totalGems")) || 0;
+  if (localStorage.getItem("canShoot") === "true") return;
+  if (gems >= 1) {
+    gems -= 1;
+    localStorage.setItem("totalGems", gems);
+    localStorage.setItem("canShoot", "true");
+    canShoot = true;
+    updateStoreUI();
+    alert("Bullet power unlocked!");
+  } else {
+    alert("Not enough gems!");
+  }
+}
+
+// CONTINUE TO PART 2 ⬇️ (next message)
+</script>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = 800;
+canvas.height = 400;
+
+const bgMusic = new Audio("bgm.mp3"); // Replace with your filename if different
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+
+
+
+const fartSounds = [
+  new Audio("https://www.soundjay.com/human/fart-01.wav"),
+  new Audio("https://www.soundjay.com/human/fart-02.wav"),
+  new Audio("https://www.soundjay.com/human/fart-03.wav"),
+  new Audio("https://www.soundjay.com/human/fart-04.wav")
+];
+fartSounds.forEach(s => s.volume = 0.4);
+
+const stars = Array.from({ length: 50 }, () => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * canvas.height,
+  size: Math.random() * 1.5 + 0.5
+}));
+
+function drawStars() {
+  ctx.fillStyle = "white";
+  for (let star of stars) {
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fill();
+    star.x -= 1.5;
+    if (star.x < 0) {
+      star.x = canvas.width;
+      star.y = Math.random() * canvas.height;
+    }
+  }
+}
+
+const player = {
+  x: 100,
+  y: 300,
+  width: 30,
+  height: 30,
+  velocityY: 0,
+  gravity: 0.8,
+  jumpForce: -14,
+  grounded: false,
+  jumping: false
+};
+
+let saws = [], triangles = [], platforms = [], collectibles = [], puffs = [];
+let frameCount = 0;
+let score = 0;
+let currency = 0;
+let emitFartTrail = false;
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && gameStarted) {
+    if (player.grounded) {
+      jump();
+      hasDoubleJumped = false;
+    } else if (canDoubleJump && !hasDoubleJumped) {
+      jump();
+      hasDoubleJumped = true;
+    }
+  }
+
+  if (e.code === "KeyF" && canShoot && gameStarted) {
+    bullets.push({ x: player.x + player.width, y: player.y + player.height / 2, speed: 10, radius: 5 });
+  }
+});
+
+function jump() {
+  player.velocityY = player.jumpForce;
+  player.grounded = false;
+  player.jumping = true;
+  emitFartTrail = true;
+  const sound = fartSounds[Math.floor(Math.random() * fartSounds.length)];
+  sound.currentTime = 0;
+  sound.play();
+}
+
+function createSaw() {
+  const size = 30;
+  saws.push({ x: canvas.width + 120, y: canvas.height - size - 40, size, rotation: 0 });
+}
+function createTriangle() {
+  const size = 30;
+  triangles.push({ x: canvas.width + 220, y: canvas.height - size - 40, size });
+}
+function createPlatform() {
+  const width = 100, height = 10;
+  platforms.push({ x: canvas.width + 20, y: 260 + Math.random() * 60, width, height });
+}
+function createCollectible() {
+  const size = 15;
+  collectibles.push({ x: canvas.width + 20, y: 180 + Math.random() * 100, size });
+}
+
+function endGame() {
+  const saved = parseInt(localStorage.getItem("totalGems")) || 0;
+  const newTotal = saved + currency;
+  localStorage.setItem("totalGems", newTotal);
+  bgMusic.pause();
+
+
+  // Check and update high score
+  const oldHigh = parseInt(localStorage.getItem("highScore")) || 0;
+  const newHigh = Math.max(oldHigh, score);
+  localStorage.setItem("highScore", newHigh);
+
+  document.getElementById("finalScore").textContent = "Score: " + score;
+  document.getElementById("finalCurrency").textContent = "Gems This Run: " + currency;
+  document.getElementById("totalCurrency").textContent = "Total Gems Ever: " + newTotal;
+  document.getElementById("highScore").textContent = "High Score: " + newHigh;
+
+  document.getElementById("gameOver").classList.remove("hidden");
+  gameStarted = false;
+
+}
+
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawStars();
+
+  const groundLevel = canvas.height - 40;
+
+  if (emitFartTrail && !player.grounded && frameCount % 4 === 0) {
+    puffs.push({
+      x: player.x - 5 + Math.random() * 10,
+      y: player.y + player.height / 2 + Math.random() * 6,
+      radius: 4,
+      alpha: 1
+    });
+  }
+
+  ctx.fillStyle = "#444";
+  ctx.fillRect(0, groundLevel, canvas.width, 40);
+
+  player.velocityY += player.gravity;
+  player.y += player.velocityY;
+  player.grounded = false;
+
+  if (player.y + player.height >= groundLevel) {
+    player.y = groundLevel - player.height;
+    player.velocityY = 0;
+    player.grounded = true;
+    player.jumping = false;
+    emitFartTrail = false;
+    hasDoubleJumped = false;
+  }
+
+  for (let plat of platforms) {
+    if (
+      player.velocityY >= 0 &&
+      player.y + player.height <= plat.y + 10 &&
+      player.y + player.height + player.velocityY >= plat.y &&
+      player.x + player.width > plat.x &&
+      player.x < plat.x + plat.width
+    ) {
+      player.y = plat.y - player.height;
+      player.velocityY = 0;
+      player.grounded = true;
+      player.jumping = false;
+      emitFartTrail = false;
+      hasDoubleJumped = false;
+    }
+  }
+
+  for (let puff of puffs) {
+    puff.x -= 3;
+    puff.radius += 0.5;
+    puff.alpha -= 0.02;
+    ctx.beginPath();
+    ctx.globalAlpha = puff.alpha;
+    ctx.fillStyle = "limegreen";
+    ctx.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  puffs = puffs.filter(p => p.alpha > 0);
+
+  ctx.shadowColor = "#00ffff";
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = "#00ffff";
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+  ctx.shadowBlur = 0;
+
+  // Draw & check bullets
+  for (let bullet of bullets) {
+    bullet.x += bullet.speed;
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Bullet collisions
+bullets = bullets.filter(b => {
+  if (b.x > canvas.width) return false;
+
+  // Check collision with saws (destroy both)
+  for (let obs of saws) {
+    const dx = b.x - (obs.x + obs.size / 2);
+    const dy = b.y - (obs.y + obs.size / 2);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < b.radius + obs.size / 2) {
+      saws = saws.filter(o => o !== obs);
+      return false;
+    }
+  }
+
+  // Check collision with triangles (just destroy bullet)
+  for (let tri of triangles) {
+    if (
+      b.x > tri.x &&
+      b.x < tri.x + tri.size &&
+      b.y > tri.y &&
+      b.y < tri.y + tri.size
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+});
+
+
+  for (let obs of saws) {
+    obs.x -= 6;
+    obs.rotation += 0.2;
+    ctx.save();
+    ctx.translate(obs.x + obs.size / 2, obs.y + obs.size / 2);
+    ctx.rotate(obs.rotation);
+    ctx.fillStyle = "#ff3333";
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4;
+      ctx.lineTo(Math.cos(angle) * obs.size / 2, Math.sin(angle) * obs.size / 2);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    if (
+      player.x < obs.x + obs.size &&
+      player.x + player.width > obs.x &&
+      player.y < obs.y + obs.size &&
+      player.y + player.height > obs.y
+    ) {
+      endGame();
+    }
+  }
+  saws = saws.filter(o => o.x + o.size > 0);
+
+  for (let tri of triangles) {
+    tri.x -= 6;
+    ctx.fillStyle = "lime";
+    ctx.beginPath();
+    ctx.moveTo(tri.x, tri.y + tri.size);
+    ctx.lineTo(tri.x + tri.size / 2, tri.y);
+    ctx.lineTo(tri.x + tri.size, tri.y + tri.size);
+    ctx.closePath();
+    ctx.fill();
+    if (
+      player.x < tri.x + tri.size &&
+      player.x + player.width > tri.x &&
+      player.y < tri.y + tri.size &&
+      player.y + player.height > tri.y
+    ) {
+      endGame();
+    }
+  }
+  triangles = triangles.filter(t => t.x + t.size > 0);
+
+  for (let plat of platforms) {
+    plat.x -= 6;
+    ctx.fillStyle = "#aaa";
+    ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+  }
+  platforms = platforms.filter(p => p.x + p.width > 0);
+
+  for (let orb of collectibles) {
+    orb.x -= 6;
+    ctx.shadowColor = "purple";
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = "violet";
+    ctx.beginPath();
+    ctx.arc(orb.x, orb.y, orb.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (
+      player.x < orb.x + orb.size &&
+      player.x + player.width > orb.x - orb.size &&
+      player.y < orb.y + orb.size &&
+      player.y + player.height > orb.y - orb.size
+    ) {
+      currency++;
+      collectibles = collectibles.filter(o => o !== orb);
+    }
+  }
+
+  score++;
+  ctx.fillStyle = "white";
+  ctx.font = "16px sans-serif";
+  ctx.fillText("Time Score: " + score, 10, 20);
+  ctx.fillText("Gems This Run: " + currency, 10, 40);
+
+  const totalGems = parseInt(localStorage.getItem("totalGems")) || 0;
+  ctx.fillText("Total Gems: " + totalGems, 10, 60);
+}
+
+function gameLoop() {
+  if (!gameStarted) return;
+  update();
+  frameCount++;
+  if (frameCount % 100 === 0) createSaw();
+  if (frameCount % 130 === 0) createPlatform();
+  if (frameCount % 180 === 0) createTriangle();
+  if (frameCount % 300 === 0) createCollectible();
+  requestAnimationFrame(gameLoop);
+}
+
+window.onload = () => {
+  const total = localStorage.getItem("totalGems") || 0;
+  document.getElementById("startTotal").textContent = "Total Gems Collected: " + total;
+  canDoubleJump = localStorage.getItem("hasDoubleJump") === "true";
+  canShoot = localStorage.getItem("canShoot") === "true";
+};
+</script>
+</body>
+</html>
+

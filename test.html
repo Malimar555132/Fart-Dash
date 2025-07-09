@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Image Test</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: sans-serif;
+    }
+    img {
+      width: 300px;
+      height: auto;
+      border: 2px solid #0ff;
+      box-shadow: 0 0 10px #0ff;
+    }
+  </style>
+</head>
+<body>
+  <h2>If you see the cube image below, it works!</h2>
+  <img src="baby_cube.png" alt="Baby Cube" onerror="this.alt='❌ Image not found!'">
+</body>
+</html>
